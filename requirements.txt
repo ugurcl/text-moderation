@@ -1,0 +1,14 @@
+scikit-learn>=1.3
+numpy
+joblib
+fastapi
+uvicorn
+python-dotenv
+slowapi
+streamlit
+pytest
+httpx
+black
+flake8
+isort
+pre-commit

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+data/train.txt
+data/test.txt
+data/*.db
+models/*.pkl
+scripts/generate_data.py
+.env
