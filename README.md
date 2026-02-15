@@ -93,12 +93,15 @@ Starts the server at `http://localhost:8000`. Swagger docs are auto-generated at
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/health` | GET | Server health check |
+| `/health` | GET | Server health check (version, uptime, model & DB status) |
 | `/predict` | POST | Single text classification |
 | `/predict/batch` | POST | Batch classification (max 100) |
 | `/predict/explain` | POST | Prediction + feature contribution analysis |
+| `/feedback` | POST | Submit label correction for a misprediction |
+| `/feedback/list` | GET | Recent feedback entries |
 | `/stats` | GET | Prediction statistics |
 | `/history` | GET | Recent prediction history |
+| `/metrics` | GET | Prometheus metrics (prediction count, latency, feedback) |
 
 To enable API key protection, set `API_KEY=your-secret-key` in your `.env` file. If left empty, auth is disabled. When active, include the `X-API-Key` header in requests:
 
@@ -117,7 +120,7 @@ curl -X POST http://localhost:8000/predict \
   -d '{"text": "Samsung Galaxy S24 Ultra 256GB"}'
 ```
 ```json
-{"text": "Samsung Galaxy S24 Ultra 256GB", "label": "product", "confidence": 0.9634, "allowed": true}
+{"text": "Samsung Galaxy S24 Ultra 256GB", "label": "product", "confidence": 0.9634, "allowed": true, "needs_review": false}
 ```
 
 ```bash
@@ -127,11 +130,39 @@ curl -X POST http://localhost:8000/predict/batch \
 ```
 ```json
 [
-  {"text": "Nike Air Max 270", "label": "product", "confidence": 1.0, "allowed": true},
-  {"text": "Vibrator Wand Massager", "label": "adult", "confidence": 1.0, "allowed": false},
-  {"text": "go fuck yourself", "label": "toxic", "confidence": 1.0, "allowed": false}
+  {"text": "Nike Air Max 270", "label": "product", "confidence": 1.0, "allowed": true, "needs_review": false},
+  {"text": "Vibrator Wand Massager", "label": "adult", "confidence": 1.0, "allowed": false, "needs_review": false},
+  {"text": "go fuck yourself", "label": "toxic", "confidence": 1.0, "allowed": false, "needs_review": false}
 ]
 ```
+
+**Feedback (label correction):**
+
+```bash
+curl -X POST http://localhost:8000/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"text": "some misclassified text", "correct_label": "product"}'
+```
+```json
+{"text": "some misclassified text", "predicted_label": "toxic", "correct_label": "product"}
+```
+
+**Health check:**
+
+```bash
+curl http://localhost:8000/health
+```
+```json
+{"status": "ok", "version": "1.1.0", "uptime_seconds": 123.4, "model_loaded": true, "database_connected": true}
+```
+
+**Prometheus metrics:**
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+Returns metrics in Prometheus exposition format, including `prediction_total`, `prediction_latency_seconds`, and `feedback_total`.
 
 ### Streamlit UI
 
@@ -163,7 +194,7 @@ print(clf.is_allowed("Nike Air Max 270"))  # True
 print(clf.is_allowed("go fuck yourself"))  # False
 
 detail = clf.get_detail("some text")
-print(detail)  # {"text": "...", "label": "...", "confidence": 0.99, "allowed": True}
+print(detail)  # {"text": "...", "label": "...", "confidence": 0.99, "allowed": True, "needs_review": False}
 
 results = clf.predict_batch(["text1", "text2", "text3"])
 ```
@@ -183,8 +214,10 @@ Copy `.env.example` to `.env` and adjust the settings:
 | `API_HOST` | 0.0.0.0 | API server address |
 | `API_PORT` | 8000 | API port |
 | `LOG_LEVEL` | INFO | Log level (DEBUG, INFO, WARNING, ERROR) |
+| `LOG_FORMAT` | json | Log format (`json` for structured, `text` for plain) |
 | `RATE_LIMIT` | 60/minute | API rate limit |
 | `CONFIDENCE_THRESHOLD` | 0.5 | Minimum confidence threshold |
+| `REVIEW_THRESHOLD` | 0.85 | Below this confidence, predictions are flagged as `needs_review` |
 | `API_KEY` | (empty) | API key (auth disabled when empty) |
 
 ## Project Structure
@@ -204,8 +237,9 @@ text-moderation/
 ├── src/
 │   ├── classifier.py    # TextClassifier class
 │   ├── config.py        # Configuration management
-│   ├── database.py      # SQLite prediction history
-│   └── logger.py        # Logging setup
+│   ├── database.py      # SQLite prediction history & feedback
+│   ├── logger.py        # Logging setup (JSON/text)
+│   └── metrics.py       # Prometheus metrics definitions
 ├── scripts/
 │   ├── train.py         # Model training script
 │   └── demo.py          # Test and benchmark script
@@ -230,6 +264,8 @@ text-moderation/
 - **Dataset:** 30,000 training, 450 test (balanced across classes)
 - **API:** FastAPI + API key auth + rate limiting + CORS + SQLite history
 - **Explainability:** Per-prediction feature contribution analysis
+- **Human-in-the-Loop:** Feedback endpoint for label corrections + confidence-based `needs_review` flag
+- **Observability:** Structured JSON logging + Prometheus metrics (latency, counters)
 - **CI/CD:** GitHub Actions automated testing
 - **Code Quality:** black + flake8 + isort + pre-commit hooks
 - **Container:** Docker + docker-compose
@@ -243,6 +279,7 @@ text-moderation/
 - uvicorn
 - python-dotenv
 - slowapi
+- prometheus-client
 - streamlit
 - pytest
 - httpx
