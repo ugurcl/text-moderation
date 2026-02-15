@@ -7,7 +7,12 @@ client = TestClient(app)
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    data = r.json()
+    assert data["status"] == "ok"
+    assert "version" in data
+    assert "uptime_seconds" in data
+    assert data["model_loaded"] is True
+    assert data["database_connected"] is True
 
 
 def test_predict():

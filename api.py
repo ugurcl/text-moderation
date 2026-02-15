@@ -1,3 +1,5 @@
+import time
+
 from fastapi import FastAPI, Request, Depends, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,6 +13,9 @@ from src.classifier import TextClassifier
 from src.config import API_HOST, API_PORT, RATE_LIMIT, CONFIDENCE_THRESHOLD, API_KEY
 from src.database import PredictionDB
 from src.logger import get_logger
+
+APP_VERSION = "1.1.0"
+_start_time = time.time()
 
 log = get_logger("api")
 
@@ -56,7 +61,20 @@ class BatchRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    uptime = time.time() - _start_time
+    db_ok = True
+    try:
+        db.conn.execute("SELECT 1")
+    except Exception:
+        db_ok = False
+
+    return {
+        "status": "ok",
+        "version": APP_VERSION,
+        "uptime_seconds": round(uptime, 1),
+        "model_loaded": clf._model is not None,
+        "database_connected": db_ok,
+    }
 
 
 @app.post("/predict")
