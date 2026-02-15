@@ -59,6 +59,14 @@ class BatchRequest(BaseModel):
     texts: list[str] = Field(min_length=1, max_length=100)
 
 
+VALID_LABELS = {"product", "adult", "toxic"}
+
+
+class FeedbackRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+    correct_label: str = Field(min_length=1)
+
+
 @app.get("/health")
 def health():
     uptime = time.time() - _start_time
@@ -112,6 +120,22 @@ def explain(request: Request, req: TextRequest, _=Depends(verify_api_key)):
     result = clf.explain(req.text)
     log.info(f"Explain: {result['label']} ({result['confidence']})")
     return result
+
+
+@app.post("/feedback")
+@limiter.limit(RATE_LIMIT)
+def feedback(request: Request, req: FeedbackRequest, _=Depends(verify_api_key)):
+    if req.correct_label not in VALID_LABELS:
+        raise HTTPException(status_code=400, detail=f"Invalid label. Must be one of: {', '.join(sorted(VALID_LABELS))}")
+    predicted = clf.predict(req.text)[0]
+    db.save_feedback(req.text, predicted, req.correct_label)
+    log.info(f"Feedback: predicted={predicted}, correct={req.correct_label}")
+    return {"text": req.text[:100], "predicted_label": predicted, "correct_label": req.correct_label}
+
+
+@app.get("/feedback/list")
+def feedback_list(limit: int = 50, _=Depends(verify_api_key)):
+    return db.get_feedback(min(limit, 200))
 
 
 @app.get("/stats")

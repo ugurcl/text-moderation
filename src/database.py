@@ -18,6 +18,15 @@ class PredictionDB:
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT,
+                predicted_label TEXT,
+                correct_label TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
         self.conn.commit()
 
     def save(self, text, label, confidence, allowed):
@@ -45,6 +54,29 @@ class PredictionDB:
             "allowed": total - blocked,
             "by_label": by_label,
         }
+
+    def save_feedback(self, text, predicted_label, correct_label):
+        self.conn.execute(
+            "INSERT INTO feedback (text, predicted_label, correct_label) VALUES (?, ?, ?)",
+            (text[:500], predicted_label, correct_label),
+        )
+        self.conn.commit()
+
+    def get_feedback(self, limit=50):
+        cur = self.conn.execute(
+            "SELECT text, predicted_label, correct_label, created_at "
+            "FROM feedback ORDER BY id DESC LIMIT ?",
+            (limit,),
+        )
+        return [
+            {
+                "text": row[0],
+                "predicted_label": row[1],
+                "correct_label": row[2],
+                "created_at": row[3],
+            }
+            for row in cur.fetchall()
+        ]
 
     def get_recent(self, limit=20):
         cur = self.conn.execute(

@@ -91,3 +91,27 @@ def test_explain():
 def test_explain_empty_text():
     r = client.post("/predict/explain", json={"text": ""})
     assert r.status_code == 422
+
+
+def test_feedback():
+    r = client.post("/feedback", json={"text": "Samsung Galaxy S24", "correct_label": "product"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["correct_label"] == "product"
+    assert "predicted_label" in data
+
+
+def test_feedback_invalid_label():
+    r = client.post("/feedback", json={"text": "test", "correct_label": "invalid"})
+    assert r.status_code == 400
+
+
+def test_feedback_list():
+    client.post("/feedback", json={"text": "test item", "correct_label": "product"})
+    r = client.get("/feedback/list")
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert "predicted_label" in data[0]
+    assert "correct_label" in data[0]
