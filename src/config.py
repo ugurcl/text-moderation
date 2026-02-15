@@ -9,6 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_FORMAT = os.getenv("LOG_FORMAT", "json")
 RATE_LIMIT = os.getenv("RATE_LIMIT", "60/minute")
 
 MODEL_DIR = Path(os.getenv("MODEL_DIR", str(BASE_DIR / "models")))
