@@ -115,3 +115,12 @@ def test_feedback_list():
     assert len(data) >= 1
     assert "predicted_label" in data[0]
     assert "correct_label" in data[0]
+
+
+def test_metrics():
+    client.post("/predict", json={"text": "test for metrics"})
+    r = client.get("/metrics")
+    assert r.status_code == 200
+    body = r.text
+    assert "prediction_total" in body
+    assert "prediction_latency_seconds" in body

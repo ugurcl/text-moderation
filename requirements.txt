@@ -5,6 +5,7 @@ fastapi
 uvicorn
 python-dotenv
 slowapi
+prometheus-client
 streamlit
 pytest
 httpx

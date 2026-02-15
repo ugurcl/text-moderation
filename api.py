@@ -9,10 +9,14 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+
 from src.classifier import TextClassifier
 from src.config import API_HOST, API_PORT, RATE_LIMIT, CONFIDENCE_THRESHOLD, REVIEW_THRESHOLD, API_KEY
 from src.database import PredictionDB
 from src.logger import get_logger
+from src.metrics import PREDICTION_COUNT, PREDICTION_LATENCY, FEEDBACK_COUNT
 
 APP_VERSION = "1.1.0"
 _start_time = time.time()
@@ -88,7 +92,10 @@ def health():
 @app.post("/predict")
 @limiter.limit(RATE_LIMIT)
 def predict(request: Request, req: TextRequest, _=Depends(verify_api_key)):
+    start = time.perf_counter()
     detail = clf.get_detail(req.text)
+    PREDICTION_LATENCY.observe(time.perf_counter() - start)
+    PREDICTION_COUNT.labels(label=detail["label"], allowed=str(detail["allowed"])).inc()
     db.save(detail["text"], detail["label"], detail["confidence"], detail["allowed"])
     log.info(f"{detail['label']} ({detail['confidence']}) {'ALLOW' if detail['allowed'] else 'BLOCK'}")
     return detail
@@ -97,10 +104,13 @@ def predict(request: Request, req: TextRequest, _=Depends(verify_api_key)):
 @app.post("/predict/batch")
 @limiter.limit(RATE_LIMIT)
 def predict_batch(request: Request, req: BatchRequest, _=Depends(verify_api_key)):
+    start = time.perf_counter()
     results = clf.predict_batch(req.texts)
+    PREDICTION_LATENCY.observe(time.perf_counter() - start)
     response = []
     for text, (label, conf) in zip(req.texts, results):
         allowed = label == "product" and conf >= CONFIDENCE_THRESHOLD
+        PREDICTION_COUNT.labels(label=label, allowed=str(allowed)).inc()
         entry = {
             "text": text[:100],
             "label": label,
@@ -129,6 +139,7 @@ def feedback(request: Request, req: FeedbackRequest, _=Depends(verify_api_key)):
         raise HTTPException(status_code=400, detail=f"Invalid label. Must be one of: {', '.join(sorted(VALID_LABELS))}")
     predicted = clf.predict(req.text)[0]
     db.save_feedback(req.text, predicted, req.correct_label)
+    FEEDBACK_COUNT.labels(predicted_label=predicted, correct_label=req.correct_label).inc()
     log.info(f"Feedback: predicted={predicted}, correct={req.correct_label}")
     return {"text": req.text[:100], "predicted_label": predicted, "correct_label": req.correct_label}
 
@@ -136,6 +147,11 @@ def feedback(request: Request, req: FeedbackRequest, _=Depends(verify_api_key)):
 @app.get("/feedback/list")
 def feedback_list(limit: int = 50, _=Depends(verify_api_key)):
     return db.get_feedback(min(limit, 200))
+
+
+@app.get("/metrics")
+def metrics():
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/stats")
