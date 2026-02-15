@@ -4,7 +4,7 @@ import re
 import joblib
 import numpy as np
 
-from src.config import MODEL_DIR
+from src.config import MODEL_DIR, REVIEW_THRESHOLD
 from src.logger import get_logger
 
 log = get_logger("classifier")
@@ -62,6 +62,7 @@ class TextClassifier:
             "label": label,
             "confidence": round(confidence, 4),
             "allowed": self.is_allowed(text),
+            "needs_review": confidence < REVIEW_THRESHOLD,
         }
 
     def explain(self, text: str, top_n: int = 10) -> dict:

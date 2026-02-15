@@ -10,7 +10,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from src.classifier import TextClassifier
-from src.config import API_HOST, API_PORT, RATE_LIMIT, CONFIDENCE_THRESHOLD, API_KEY
+from src.config import API_HOST, API_PORT, RATE_LIMIT, CONFIDENCE_THRESHOLD, REVIEW_THRESHOLD, API_KEY
 from src.database import PredictionDB
 from src.logger import get_logger
 
@@ -98,6 +98,7 @@ def predict_batch(request: Request, req: BatchRequest, _=Depends(verify_api_key)
             "label": label,
             "confidence": round(conf, 4),
             "allowed": allowed,
+            "needs_review": conf < REVIEW_THRESHOLD,
         }
         db.save(entry["text"], label, round(conf, 4), allowed)
         response.append(entry)

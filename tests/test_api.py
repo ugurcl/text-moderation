@@ -22,6 +22,8 @@ def test_predict():
     assert "label" in data
     assert "confidence" in data
     assert "allowed" in data
+    assert "needs_review" in data
+    assert isinstance(data["needs_review"], bool)
 
 
 def test_predict_response_types():

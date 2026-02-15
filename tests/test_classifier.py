@@ -39,6 +39,8 @@ def test_get_detail_keys():
     assert "label" in detail
     assert "confidence" in detail
     assert "allowed" in detail
+    assert "needs_review" in detail
+    assert isinstance(detail["needs_review"], bool)
 
 
 def test_get_detail_text_truncation():

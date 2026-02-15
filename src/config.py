@@ -17,5 +17,6 @@ DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data")))
 DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "data" / "predictions.db")))
 
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
+REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.85"))
 
 API_KEY = os.getenv("API_KEY", "")
